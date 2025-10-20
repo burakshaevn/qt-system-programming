@@ -79,6 +79,9 @@ bool Assembler::isDirective(const std::string& name) const
 
 bool Assembler::isLabel(const std::string& name) const
 {
+    if (isRegister(name)) {
+        return false; // Регистр не может быть меткой
+    }
     if (name.empty() || name.length() > 10) return false;
 
     // Must start with a letter
@@ -345,7 +348,7 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
                     try {
                         int value = std::stoi(codeLine.getFirstOperand());
                         if (value < 0 || value > 16777215) {
-                            throw AssemblerException("Недопустимое значение операнда: " + textLine);
+                            throw AssemblerException("Ожидается метка или числовой адрес. Неверный формат значения:  " + textLine);
                         }
                         overflowCheck(ip_ + 4, textLine);
                         std::stringstream ss;
@@ -355,7 +358,7 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
                         firstPassLine = ss.str();
                         ip_ += 4;
                     } catch (const std::exception&) {
-                        throw AssemblerException("Недопустимое значение операнда: " + textLine);
+                        throw AssemblerException("Ожидается метка или числовой адрес. Неверный формат значения:  " + textLine);
                     }
                 }
                 break;
@@ -732,7 +735,7 @@ std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
             int length = codeLine.getFirstOperand().length() / 2;
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
-               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length
+               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length + 1
                << " " << codeLine.getCommand() << codeLine.getFirstOperand();
             return ss.str();
         }
