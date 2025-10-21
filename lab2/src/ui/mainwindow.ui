@@ -15,65 +15,20 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="mainLayout">
-    <item row="0" column="0">
-     <widget class="QLabel" name="sourceCodeLabel">
+    <item row="2" column="2">
+     <widget class="QLabel" name="setupLabel">
       <property name="text">
-       <string>Исходный текст</string>
+       <string>Таблица настройки</string>
       </property>
      </widget>
     </item>
-    <item row="1" column="0">
-     <widget class="QTextEdit" name="sourceCodeTextEdit"/>
+    <item row="3" column="2">
+     <widget class="QTextEdit" name="secondSetupTable"/>
     </item>
-    <item row="2" column="0">
-     <widget class="QLabel" name="commandsLabel">
+    <item row="4" column="2">
+     <widget class="QLabel" name="secondPassErrorsLabel">
       <property name="text">
-       <string>Таблица кодов операций</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QTextEdit" name="commandsTextEdit"/>
-    </item>
-    <item row="0" column="1">
-     <widget class="QLabel" name="firstPassLabel">
-      <property name="text">
-       <string>Вспомогательная таблица</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QTextEdit" name="firstPassTextEdit">
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLabel" name="tsiLabel">
-      <property name="text">
-       <string>Таблица символических имен</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1">
-     <widget class="QTextEdit" name="tsiTextEdit">
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="firstPassErrorsLabel">
-      <property name="text">
-       <string>Ошибки первого прохода</string>
-      </property>
-     </widget>
-    </item>
-    <item row="5" column="1">
-     <widget class="QTextEdit" name="firstPassErrorsTextEdit">
-      <property name="readOnly">
-       <bool>true</bool>
+       <string>Ошибки второго прохода</string>
       </property>
      </widget>
     </item>
@@ -84,13 +39,17 @@
       </property>
      </widget>
     </item>
-    <item row="1" column="2">
-     <widget class="QTextEdit" name="secondPassTextEdit"/>
-    </item>
-    <item row="4" column="2">
-     <widget class="QLabel" name="secondPassErrorsLabel">
+    <item row="4" column="1">
+     <widget class="QLabel" name="firstPassErrorsLabel">
       <property name="text">
-       <string>Ошибки второго прохода</string>
+       <string>Ошибки первого прохода</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QTextEdit" name="firstPassTextEdit">
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
@@ -161,14 +120,90 @@
       </item>
      </layout>
     </item>
-    <item row="3" column="2">
-     <widget class="QTextEdit" name="secondSetupTable"/>
+    <item row="1" column="2">
+     <widget class="QTextEdit" name="secondPassTextEdit"/>
     </item>
-    <item row="2" column="2">
-     <widget class="QLabel" name="setupLabel">
-      <property name="text">
-       <string>Таблица настройки</string>
+    <item row="3" column="1">
+     <widget class="QTextEdit" name="tsiTextEdit">
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QLabel" name="firstPassLabel">
+      <property name="text">
+       <string>Вспомогательная таблица</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLabel" name="tsiLabel">
+      <property name="text">
+       <string>Таблица символических имен</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="1">
+     <widget class="QTextEdit" name="firstPassErrorsTextEdit">
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0" rowspan="6">
+     <widget class="QGroupBox" name="leftGroupBox">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QGroupBox {
+	border: 0px;
+}</string>
+      </property>
+      <property name="title">
+       <string/>
+      </property>
+      <property name="flat">
+       <bool>false</bool>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="sourceCodeLabel">
+         <property name="text">
+          <string>Исходный текст</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="sourceCodeTextEdit"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="commandsLabel">
+         <property name="text">
+          <string>Таблица кодов операций</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="commandsTextEdit"/>
+       </item>
+      </layout>
      </widget>
     </item>
    </layout>
