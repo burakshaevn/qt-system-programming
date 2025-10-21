@@ -37,6 +37,7 @@ set(HEADERS
     include/structures/symbolicname.h
     include/structures/codeline.h
     include/exceptions/assemblerexception.h
+    include/examples/example.h
 )
 
 # UI files

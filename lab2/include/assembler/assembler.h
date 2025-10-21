@@ -20,12 +20,16 @@ public:
     const std::vector<Command>& getAvailableCommands() const { return availableCommands_; }
 
     // Two-pass assembly
-    std::vector<std::string> firstPass(const std::vector<std::vector<std::string>>& lines);
+    std::vector<std::string> firstPass(const std::vector<std::vector<std::string>>& lines, const std::string& addressingMode = "Straight");
     std::vector<std::string> secondPass(const std::vector<std::vector<std::string>>& firstPassCode);
 
     // Symbol table management
     void clearTSI();
     const std::vector<SymbolicName>& getTSI() const { return tsi_; }
+    
+    // Modification table management
+    void clearTN();
+    const std::vector<std::string>& getTN() const { return tn_; }
 
     // Utility functions
     bool isCommand(const std::string& name) const;
@@ -34,6 +38,7 @@ public:
     bool isRegister(const std::string& name) const;
     bool isCString(const std::string& str) const;
     bool isXString(const std::string& str) const;
+    bool isRelativeLabel(const std::string& str) const;
 
     int getRegisterNumber(const std::string& reg) const;
     SymbolicName* getSymbolicName(const std::string& name);
@@ -44,10 +49,12 @@ private:
 
     std::vector<Command> availableCommands_;
     std::vector<SymbolicName> tsi_;
+    std::vector<std::string> tn_; // Modification table
 
     int startAddress_;
     int endAddress_;
     int ip_; // instruction pointer
+    int secondIp_; // Second pass instruction pointer
 
     // Available directives
     static const std::vector<std::string> AVAILABLE_DIRECTIVES;
@@ -55,6 +62,7 @@ private:
     // Helper functions
     void overflowCheck(int value, const std::string& textLine) const;
     void pushToTSI(const std::string& name, int address);
+    void pushToTN(const std::string& address);
 
     CodeLine getCodeLineFromSource(const std::vector<std::string>& line);
     CodeLine getCodeLineFromFirstPass(const std::vector<std::string>& line);

@@ -11,7 +11,7 @@ const std::vector<std::string> Assembler::AVAILABLE_DIRECTIVES = {
 };
 
 Assembler::Assembler()
-    : startAddress_(0), endAddress_(0), ip_(0)
+    : startAddress_(0), endAddress_(0), ip_(0), secondIp_(0)
 {
     // Initialize with default commands
     availableCommands_ = {
@@ -50,6 +50,16 @@ void Assembler::setAvailableCommands(const std::vector<Command>& commands)
 void Assembler::clearTSI()
 {
     tsi_.clear();
+}
+
+void Assembler::clearTN()
+{
+    tn_.clear();
+}
+
+void Assembler::pushToTN(const std::string& address)
+{
+    tn_.push_back(address);
 }
 
 bool Assembler::isCommand(const std::string& name) const
@@ -107,6 +117,20 @@ bool Assembler::isRegister(const std::string& name) const
 
     std::regex regPattern(R"(^R(?:[1-9]|1[0-6])$)");
     return std::regex_match(name, regPattern);
+}
+
+bool Assembler::isRelativeLabel(const std::string& str) const
+{
+    if (str.empty() || str.length() < 3) return false;
+
+    // Must start with [ and end with ]
+    if (str.front() != '[' || str.back() != ']') return false;
+
+    // Extract the label inside brackets
+    std::string labelInside = str.substr(1, str.length() - 2);
+
+    // Check if it's a valid label
+    return isLabel(labelInside);
 }
 
 bool Assembler::isCString(const std::string& str) const
@@ -179,7 +203,7 @@ std::string Assembler::convertToASCII(const std::string& str) const
 void Assembler::overflowCheck(int value, const std::string& textLine) const
 {
     if (value < 0 || value > MAX_ADDRESS) {
-        throw AssemblerException("Произошло переполнение выделенной памяти: " + textLine);
+        throw AssemblerException("Выход за границы выделенной памяти: " + textLine);
     }
 }
 
@@ -188,7 +212,7 @@ void Assembler::pushToTSI(const std::string& name, int address)
     tsi_.emplace_back(name, address);
 }
 
-std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std::string>>& lines)
+std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std::string>>& lines, const std::string& addressingMode)
 {
     std::vector<std::string> firstPassCode;
 
@@ -256,6 +280,9 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
             } else if (upperCmd == "RESB") {
                 firstPassLine = processResbDirective(codeLine, textLine);
             } else if (upperCmd == "END") {
+                if (!startFlag || endFlag) {
+                    throw AssemblerException("Не найдена метка START либо ошибка в директивах START/END: " + textLine);
+                }
                 processEndDirective(codeLine, textLine);
                 endFlag = true;
                 continue;
@@ -336,7 +363,25 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
                     throw AssemblerException("Ожидается один операнд, но найдено два: " + textLine);
                 }
 
-                if (isLabel(codeLine.getFirstOperand())) {
+                // Check for relative addressing [LABEL]
+                if (isRelativeLabel(codeLine.getFirstOperand())) {
+                    if (addressingMode == "Straight") {
+                        throw AssemblerException("Данный тип адресации недоступен в этом режиме адресации: " + textLine);
+                    }
+                    
+                    overflowCheck(ip_ + 4, textLine);
+                    std::stringstream ss;
+                    ss << std::hex << std::uppercase << std::setfill('0') << std::setw(6) << ip_
+                       << " " << std::setw(2) << (command.getCode() * 4 + 2)
+                       << " " << codeLine.getFirstOperand();
+                    firstPassLine = ss.str();
+                    ip_ += 4;
+                } else if (isLabel(codeLine.getFirstOperand())) {
+                    // Direct addressing with label
+                    if (addressingMode == "Relative") {
+                        throw AssemblerException("Данный тип адресации недоступен в этом режиме адресации: " + textLine);
+                    }
+                    
                     overflowCheck(ip_ + 4, textLine);
                     std::stringstream ss;
                     ss << std::hex << std::uppercase << std::setfill('0') << std::setw(6) << ip_
@@ -348,7 +393,7 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
                     try {
                         int value = std::stoi(codeLine.getFirstOperand());
                         if (value < 0 || value > 16777215) {
-                            throw AssemblerException("Ожидается метка или числовой адрес. Неверный формат значения:  " + textLine);
+                            throw AssemblerException("Недопустимое значение операнда: " + textLine);
                         }
                         overflowCheck(ip_ + 4, textLine);
                         std::stringstream ss;
@@ -358,7 +403,7 @@ std::vector<std::string> Assembler::firstPass(const std::vector<std::vector<std:
                         firstPassLine = ss.str();
                         ip_ += 4;
                     } catch (const std::exception&) {
-                        throw AssemblerException("Ожидается метка или числовой адрес. Неверный формат значения:  " + textLine);
+                        throw AssemblerException("Недопустимое значение операнда: " + textLine);
                     }
                 }
                 break;
@@ -402,11 +447,11 @@ std::string Assembler::processStartDirective(const CodeLine& codeLine, const std
         throw AssemblerException("Невозможно преобразовать первый операнд в адрес начала программы: " + textLine);
     }
 
-    overflowCheck(address, textLine);
-
-    if (address == 0) {
-        throw AssemblerException("Адрес начала программы не может быть равен нулю: " + textLine);
+    if (address != 0) {
+        throw AssemblerException("Адрес загрузки должен быть равен нулю: " + textLine);
     }
+
+    overflowCheck(address, textLine);
 
     ip_ = address;
     startAddress_ = address;
@@ -482,11 +527,11 @@ std::string Assembler::processByteDirective(const CodeLine& codeLine, const std:
             return ss.str();
         } else if (isXString(operand)) {
             std::string symbols = operand.substr(2, operand.length() - 3);
-            overflowCheck(ip_ + symbols.length(), textLine);
+            overflowCheck(ip_ + symbols.length() / 2, textLine);
 
             std::stringstream ss;
             ss << std::hex << std::uppercase << std::setfill('0') << std::setw(6) << ip_ << " BYTE " << operand;
-            ip_ += symbols.length();
+            ip_ += symbols.length() / 2;
             return ss.str();
         } else {
             throw AssemblerException("Невозможно преобразовать первый операнд в символьную или шестнадцатеричную строку: " + textLine);
@@ -558,10 +603,6 @@ std::string Assembler::processEndDirective(const CodeLine& codeLine, const std::
         throw AssemblerException("Ожидается максимум один операнд, но найдено два: " + textLine);
     }
 
-    if (startAddress_ == 0) {
-        throw AssemblerException("Не найдена метка START либо ошибка в директивах START/END: " + textLine);
-    }
-
     if (codeLine.hasFirstOperand()) {
         int address;
         try {
@@ -596,6 +637,7 @@ CodeLine Assembler::getCodeLineFromFirstPass(const std::vector<std::string>& lin
 std::vector<std::string> Assembler::secondPass(const std::vector<std::vector<std::string>>& firstPassCode)
 {
     std::vector<std::string> secondPassCode;
+    secondIp_ = 0;
 
     for (size_t i = 0; i < firstPassCode.size(); ++i) {
         CodeLine codeLine = getCodeLineFromFirstPass(firstPassCode[i]);
@@ -614,6 +656,7 @@ std::vector<std::string> Assembler::secondPass(const std::vector<std::vector<std
 
             if (upperCmd == "WORD") {
                 secondPassLine = processSecondPassWord(codeLine);
+                secondIp_ += 3;
             } else if (upperCmd == "BYTE") {
                 secondPassLine = processSecondPassByte(codeLine);
             } else if (upperCmd == "RESB") {
@@ -626,6 +669,13 @@ std::vector<std::string> Assembler::secondPass(const std::vector<std::vector<std
         }
 
         secondPassCode.push_back(secondPassLine);
+    }
+
+    // Add modification records
+    for (const auto& address : tn_) {
+        std::stringstream ss;
+        ss << "M " << address;
+        secondPassCode.push_back(ss.str());
     }
 
     if (endAddress_ < startAddress_ || endAddress_ > ip_) {
@@ -659,6 +709,8 @@ std::string Assembler::processSecondPassByte(const CodeLine& codeLine)
         int length = symbols.length();
         std::string asciiHex = convertToASCII(symbols);
 
+        secondIp_ += length;
+        
         std::stringstream ss;
         ss << "T " << codeLine.getLabel() << " "
            << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length
@@ -666,8 +718,10 @@ std::string Assembler::processSecondPassByte(const CodeLine& codeLine)
         return ss.str();
     } else if (isXString(operand)) {
         std::string symbols = operand.substr(2, operand.length() - 3);
-        int length = symbols.length();
+        int length = symbols.length() / 2;
 
+        secondIp_ += length;
+        
         std::stringstream ss;
         ss << "T " << codeLine.getLabel() << " "
            << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length
@@ -677,6 +731,9 @@ std::string Assembler::processSecondPassByte(const CodeLine& codeLine)
         // Try to parse as numeric value
         try {
             int value = std::stoi(operand, nullptr, 16);
+            
+            secondIp_ += 1;
+            
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
                << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << 1
@@ -692,6 +749,8 @@ std::string Assembler::processSecondPassResb(const CodeLine& codeLine)
 {
     int length = std::stoi(codeLine.getFirstOperand(), nullptr, 16);
 
+    secondIp_ += length;
+    
     std::stringstream ss;
     ss << "T " << codeLine.getLabel() << " "
        << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length;
@@ -702,6 +761,8 @@ std::string Assembler::processSecondPassResw(const CodeLine& codeLine)
 {
     int length = std::stoi(codeLine.getFirstOperand(), nullptr, 16);
 
+    secondIp_ += length * 3;
+    
     std::stringstream ss;
     ss << "T " << codeLine.getLabel() << " "
        << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (length * 3);
@@ -711,31 +772,46 @@ std::string Assembler::processSecondPassResw(const CodeLine& codeLine)
 std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
 {
     int addressingType = std::stoi(codeLine.getCommand(), nullptr, 16) & 0x03;
+    int commandCode = (std::stoi(codeLine.getCommand(), nullptr, 16) & 0xFC) >> 2;
+
+    // Find command by code
+    auto cmdIt = std::find_if(availableCommands_.begin(), availableCommands_.end(),
+                              [commandCode](const Command& cmd) {
+                                  return cmd.getCode() == commandCode;
+                              });
+    
+    if (cmdIt == availableCommands_.end()) {
+        throw AssemblerException("Неизвестная команда");
+    }
+    
+    const Command& command = *cmdIt;
 
     switch (addressingType) {
     case 0:
         if (!codeLine.hasFirstOperand() && !codeLine.hasSecondOperand()) {
             // Operandless command
+            secondIp_ += 1;
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
-               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << 1
+               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
                << " " << codeLine.getCommand();
             return ss.str();
         } else if (codeLine.hasSecondOperand()) {
             // Registers
+            secondIp_ += 2;
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
-               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << 2
+               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
                << " " << codeLine.getCommand()
-               << std::hex << std::uppercase << std::setfill('0') << std::setw(1) << getRegisterNumber(codeLine.getFirstOperand())
-               << std::setw(1) << getRegisterNumber(codeLine.getSecondOperand());
+               << std::hex << std::uppercase << std::setfill('0') << std::setw(1) << (getRegisterNumber(codeLine.getFirstOperand()) - 1)
+               << std::setw(1) << (getRegisterNumber(codeLine.getSecondOperand()) - 1);
             return ss.str();
         } else {
             // One operand
-            int length = codeLine.getFirstOperand().length() / 2;
+            secondIp_ += 2;
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
-               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << length + 1
+               << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
                << " " << codeLine.getCommand() << codeLine.getFirstOperand();
             return ss.str();
         }
@@ -747,11 +823,48 @@ std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
             throw AssemblerException("Метка не найдена в ТСИ: " + codeLine.getFirstOperand());
         }
 
+        secondIp_ += 4;
+        
+        pushToTN(codeLine.getLabel());
+        
         std::stringstream ss;
         ss << "T " << codeLine.getLabel() << " "
-           << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << 4
+           << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
            << " " << codeLine.getCommand()
            << std::setw(6) << symbolicName->getAddress();
+        return ss.str();
+    }
+
+    case 2:
+    {
+        // Relative addressing [LABEL]
+        // Extract label from [LABEL]
+        std::string labelName = codeLine.getFirstOperand().substr(1, codeLine.getFirstOperand().length() - 2);
+        
+        SymbolicName* symbolicName = getSymbolicName(labelName);
+        if (symbolicName == nullptr) {
+            throw AssemblerException("Метка не найдена в ТСИ: " + labelName);
+        }
+
+        secondIp_ += 4;
+        
+        // Calculate relative offset
+        int relativeOffset = symbolicName->getAddress() - secondIp_;
+        
+        std::stringstream ss;
+        ss << "T " << codeLine.getLabel() << " "
+           << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
+           << " " << codeLine.getCommand();
+        
+        // Handle negative offsets for two's complement representation
+        if (relativeOffset < 0) {
+            // Convert to 24-bit two's complement
+            unsigned int unsignedOffset = (1 << 24) + relativeOffset;
+            ss << std::setw(6) << (unsignedOffset & 0xFFFFFF);
+        } else {
+            ss << std::setw(6) << relativeOffset;
+        }
+        
         return ss.str();
     }
 

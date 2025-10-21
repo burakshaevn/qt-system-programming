@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QComboBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -24,11 +25,12 @@ void MainWindow::setupConnections()
 {
     connect(ui->firstPassButton, &QPushButton::clicked, this, &MainWindow::onFirstPassClicked);
     connect(ui->secondPassButton, &QPushButton::clicked, this, &MainWindow::onSecondPassClicked);
+    connect(ui->exampleComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onExampleChanged);
 }
 
 void MainWindow::initializeDefaultContent()
 {
-    ui->sourceCodeTextEdit->setPlainText(defaultSourceCode);
+    ui->sourceCodeTextEdit->setPlainText(straightSample);
     
     // Initialize commands text edit with default commands
     QString commandsText;
@@ -47,8 +49,11 @@ void MainWindow::onFirstPassClicked()
     try {
         // Clear previous results
         ui->tsiTextEdit->clear();
+        ui->secondSetupTable->clear();
         ui->firstPassTextEdit->clear();
+        ui->secondPassTextEdit->clear();
         ui->firstPassErrorsTextEdit->clear();
+        ui->secondPassErrorsTextEdit->clear();
         
         // Parse commands
         QString commandsText = ui->commandsTextEdit->toPlainText();
@@ -56,15 +61,27 @@ void MainWindow::onFirstPassClicked()
         std::vector<Command> commands = Parser::textToCommands(commandsText.toStdString());
         assembler.setAvailableCommands(commands);
         
-        // Clear TSI
+        // Clear TSI and TN
         assembler.clearTSI();
+        assembler.clearTN();
         
         // Parse source code
         QString sourceText = ui->sourceCodeTextEdit->toPlainText();
         std::vector<std::vector<std::string>> sourceLines = Parser::parseCode(sourceText.toStdString());
         
+        // Get addressing mode from combo box
+        std::string addressingMode = "Straight";
+        int selectedIndex = ui->exampleComboBox->currentIndex();
+        if (selectedIndex == 0) {
+            addressingMode = "Straight";
+        } else if (selectedIndex == 1) {
+            addressingMode = "Relative";
+        } else if (selectedIndex == 2) {
+            addressingMode = "Mixed";
+        }
+        
         // First pass
-        std::vector<std::string> firstPassResult = assembler.firstPass(sourceLines);
+        std::vector<std::string> firstPassResult = assembler.firstPass(sourceLines, addressingMode);
         
         // Display results
         QString firstPassText;
@@ -93,6 +110,7 @@ void MainWindow::onFirstPassClicked()
 void MainWindow::onSecondPassClicked()
 {
     ui->secondPassTextEdit->clear();
+    ui->secondSetupTable->clear();
     ui->secondPassErrorsTextEdit->clear();
     
     if (ui->firstPassTextEdit->toPlainText().isEmpty()) {
@@ -100,6 +118,9 @@ void MainWindow::onSecondPassClicked()
     }
     
     try {
+        // Clear TN before second pass
+        assembler.clearTN();
+        
         // Parse first pass result
         QString firstPassText = ui->firstPassTextEdit->toPlainText();
         std::vector<std::vector<std::string>> firstPassLines = Parser::parseCode(firstPassText.toStdString());
@@ -114,9 +135,33 @@ void MainWindow::onSecondPassClicked()
         }
         ui->secondPassTextEdit->setPlainText(secondPassText);
         
+        // Display TN
+        QString tnText;
+        for (const auto& address : assembler.getTN()) {
+            tnText += QString::fromStdString(address) + "\n";
+        }
+        ui->secondSetupTable->setPlainText(tnText);
+        
     } catch (const AssemblerException& e) {
         ui->secondPassErrorsTextEdit->setPlainText("Ошибка: " + QString::fromStdString(e.what()));
     } catch (const std::exception& e) {
         ui->secondPassErrorsTextEdit->setPlainText("Ошибка: " + QString::fromStdString(e.what()));
+    }
+}
+
+void MainWindow::onExampleChanged(int index)
+{
+    switch (index) {
+    case 0:
+        ui->sourceCodeTextEdit->setPlainText(straightSample);
+        break;
+    case 1:
+        ui->sourceCodeTextEdit->setPlainText(relativeSample);
+        break;
+    case 2:
+        ui->sourceCodeTextEdit->setPlainText(mixedSample);
+        break;
+    default:
+        break;
     }
 }
