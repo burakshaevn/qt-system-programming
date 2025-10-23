@@ -6,6 +6,7 @@ lib/
 
 # CMake generated files
 CMakeCache.txt
+CMakeLists.txt.user
 CMakeFiles/
 cmake_install.cmake
 Makefile

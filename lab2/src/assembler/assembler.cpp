@@ -790,7 +790,7 @@ std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
     case 0:
         if (!codeLine.hasFirstOperand() && !codeLine.hasSecondOperand()) {
             // Operandless command
-            secondIp_ += 1;
+            secondIp_ += command.getLength();
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
                << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
@@ -798,7 +798,7 @@ std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
             return ss.str();
         } else if (codeLine.hasSecondOperand()) {
             // Registers
-            secondIp_ += 2;
+            secondIp_ += command.getLength();
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
                << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
@@ -808,7 +808,7 @@ std::string Assembler::processSecondPassCommand(const CodeLine& codeLine)
             return ss.str();
         } else {
             // One operand
-            secondIp_ += 2;
+            secondIp_ += command.getLength();
             std::stringstream ss;
             ss << "T " << codeLine.getLabel() << " "
                << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << command.getLength()
