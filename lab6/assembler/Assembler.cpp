@@ -543,7 +543,7 @@ bool Assembler::ProcessStep()
                         QString::number(ip, 16).toUpper().rightJustified(6, '0'),
                         QString::number(command->Length, 16).toUpper().rightJustified(2, '0'),
                         QString::number(command->Code * 4 + 2, 16).toUpper().rightJustified(2, '0'),
-                        negativeOne.mid(2));  // Last 4 hex digits
+                        negativeOne);
                 } else if (sn->Address == -1) {
                     PushToTSI(label, ip, currentSection, "AR", textLine);
                     QString negativeOne = QString::number(0xFFFFFF, 16).toUpper().rightJustified(6, '0');
@@ -551,7 +551,7 @@ bool Assembler::ProcessStep()
                         QString::number(ip, 16).toUpper().rightJustified(6, '0'),
                         QString::number(command->Length, 16).toUpper().rightJustified(2, '0'),
                         QString::number(command->Code * 4 + 2, 16).toUpper().rightJustified(2, '0'),
-                        negativeOne.mid(2));  // Last 4 hex digits
+                        negativeOne);
                 } else {
                     if (sn->Type == "ВС") {
                         throw AssemblerException(QString("Относительный тип адресации недоступен для внешних ссылок: %1").arg(textLine));
@@ -584,8 +584,8 @@ bool Assembler::ProcessStep()
                     binaryCodeLine = QString("T %1 %2 %3%4").arg(
                         QString::number(ip, 16).toUpper().rightJustified(6, '0'),
                         QString::number(command->Length, 16).toUpper().rightJustified(2, '0'),
-                        QString::number(command->Code * 4 + 2, 16).toUpper().rightJustified(2, '0'),
-                        negativeOne.mid(2));
+                        QString::number(command->Code * 4 + 1, 16).toUpper().rightJustified(2, '0'),
+                        negativeOne);
                     PushToTN(QString::number(ip, 16).toUpper().rightJustified(6, '0'), "", currentSection.Name);
                 } else if (sn->Address == -1) {
                     PushToTSI(codeLine.FirstOperand, ip, currentSection, "AR", textLine);
@@ -593,8 +593,8 @@ bool Assembler::ProcessStep()
                     binaryCodeLine = QString("T %1 %2 %3%4").arg(
                         QString::number(ip, 16).toUpper().rightJustified(6, '0'),
                         QString::number(command->Length, 16).toUpper().rightJustified(2, '0'),
-                        QString::number(command->Code * 4 + 2, 16).toUpper().rightJustified(2, '0'),
-                        negativeOne.mid(2));
+                        QString::number(command->Code * 4 + 1, 16).toUpper().rightJustified(2, '0'),
+                        negativeOne);
                     PushToTN(QString::number(ip, 16).toUpper().rightJustified(6, '0'), "", currentSection.Name);
                 } else {
                     if (sn->Type == "ВС") {
@@ -685,23 +685,21 @@ void Assembler::ProvideAddresses(SymbolicName* symbolicName)
         return;
     }
 
-    // Collect T lines for this section
-    QList<QString> sectionTLines;
+    // Find end line index for this section (next H line or end of BinaryCode)
+    int endLineIndex = BinaryCode.size();
     for (int i = startLineIndex + 1; i < BinaryCode.size(); i++) {
         QStringList parts = BinaryCode[i].split(' ');
-        if (parts.size() > 0 && parts[0] != "T") {
-            continue;
-        }
-        if (parts.size() > 0 && parts[0] == "T") {
-            sectionTLines.append(BinaryCode[i]);
+        if (parts.size() >= 2 && parts[0] == "H") {
+            endLineIndex = i;
+            break;
         }
     }
 
     for (int requirement : symbolicName->AddressRequirements) {
-        // Find the T line with matching address
+        // Find the T line with matching address within this section
         QString matchingLine;
         int index = -1;
-        for (int i = 0; i < BinaryCode.size(); i++) {
+        for (int i = startLineIndex + 1; i < endLineIndex; i++) {
             QString line = BinaryCode[i];
             QStringList parts = line.split(' ');
             if (parts.size() >= 2 && parts[0] == "T") {
@@ -757,10 +755,9 @@ void Assembler::ProvideAddresses(SymbolicName* symbolicName)
 
                             // Remove last 6 characters and replace with new offset
                             // Format: "T <address> <length> <command(2)><offset(6)>"
-                            // We remove last 6 chars (command + old offset) and add command + new offset
+                            // We remove last 6 chars (old offset) and add new offset
                             QString newLine = matchingLine;
-                            QString commandByte = commandData.left(2);  // Get command byte (2 hex digits)
-                            newLine = matchingLine.left(matchingLine.length() - 6) + commandByte + offsetStr;
+                            newLine = matchingLine.left(matchingLine.length() - 6) + offsetStr;
                             BinaryCode[index] = newLine;
                             break;
                         }
